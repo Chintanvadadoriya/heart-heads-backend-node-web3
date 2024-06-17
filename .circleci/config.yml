@@ -1,0 +1,40 @@
+version: 2.1
+
+orbs:
+    node: circleci/node@5.0
+jobs:
+    build-and-test:
+        docker:
+            - image: cimg/node:18.18
+        steps:
+            - checkout
+            - run:
+                  name: Install package
+                  command: sudo npm install -g node-gyp && sudo npm install -g node-pre-gyp && npm install
+    deploy:
+        machine:
+            image: "ubuntu-2004:current"
+        steps:
+            - checkout
+            - run:
+                  name: Fix ssh Could not resolve hostname
+                  command: |
+                      pwd
+                      ls -lah
+                      ssh-keyscan ${SSH_HOST} >> ~/.ssh/known_hosts # Add live server IP to known hosts.
+
+            - add_ssh_keys: # add private SSH key from CircleCI account based on fingerprint.
+                  fingerprints:
+                      - "de:01:d6:19:00:de:dd:08:c7:b7:cd:b2:4e:4e:51:c6"
+
+            - run:
+                  name: Deploy to EC2
+                  command: ssh ${SSH_USERNAME}@${SSH_HOST} 'bash -s -i' < .circleci/deploy.sh
+
+workflows:
+    sample:
+        jobs:
+            - build-and-test
+            - deploy:
+                  requires:
+                      - build-and-test
